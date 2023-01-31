@@ -1,0 +1,92 @@
+---
+title: "HDB_Case_Study"
+author: "gabriel"
+date: "2023-01-31"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Gabriel's Capstone Project
+
+In this project I will be taking a look at the pernicious effects of the HDB's 99-year leasehold by quantifying the rate of intrinsic value deterioration, not accounting for inflation or market conditions. 
+
+### Contents
+1. Data Preparation 
+2. Analysis  
+3. Key Findings
+4. Conclusion
+
+---
+
+#### 1. Data Preperation
+
+The data set used in this project can be found at <https://data.gov.sg/dataset/resale-flat-prices>  
+This data is based on the date of registration for resale transactions between Jan 2012 and Jan 2023. 
+Firstly since the data from the source splits the years up in 3 different files, we will have to append them together with power query.
+
+![Fig.1 Appending all 3 files together](images/process_append.jpeg)
+
+The next step is to calculate the Remaining Lease of each unit at the time of transaction. Which is given by the equation: 
+$$RL =  99 - (Y_{1} - Y_{0}) $$  
+
+* Where;
+  * RL = Remaining Lease
+  * Y1 = Year transaction occurred
+  * Y2  = Year of lease commenced\
+  
+  
+  
+This is done with the following formula in Microsoft Excel:
+```
+=DATE(99-(YEAR([@month])-[@[lease_commence_date]]),MONTH([@month]),DAY([@month]))
+```  
+
+Now that we have prepared our data, let's get familiar with its contents before we begin analysis. 
+```{r echo=TRUE}
+library(tidyverse)
+dataset <- read.csv("Book1.csv")
+glimpse(dataset)
+unique(dataset$town)
+
+```
+
+The output above shows the 11 columns that we're working with and the 234,765 transactions that make up this data set. Each one of these transactions come from one of the 26 housing estates as seen above.  
+
+
+#### 2. Analysis
+One might be tempted to assume a linear rate of deterioration in property value, trending toward zero. However that is not the case, the typical HDB's value follows the proverbial Bala's Curve (Fig.2). The property value is a concave downward graph that exponentially decreases it value the lower the tenure left.
+![Fig.2 Bala's Curve](images/Bala-curve.png)
+
+
+
+From our data set let's find out the _average_ deterioration of value by creating a linear model based on the covariance between resale price and the remaining lease. Next we import the "Broom" package to convert statistical analysis objects into tidy tibbles, we need this to save the estimated regression value into the slope variable.
+
+
+```{r}
+price_model = lm(resale_price ~ remaining_lease , data = dataset)
+summary(price_model)
+
+library(broom)
+price_model %>% 
+  tidy() %>% 
+  filter(term == "remaining_lease") %>% 
+  pull(estimate) -> slope
+```
+Now that we have the slope variable we can pass this into our line plot as an annotation. 
+```{r}
+dataset %>% 
+  filter() %>% 
+  ggplot(aes(x = factor(remaining_lease), y = resale_price, group = 1)) +
+  geom_line(stat = 'summary', fun = 'mean') +
+  geom_smooth(method = 'lm')+
+  labs(title = "Relationship between resale prices and lease tenure")+
+  annotate("text", x =20, y= 600000 ,label= (paste0("Slope ==", slope)), parse = TRUE )
+```
+
+## 3. Key Findingssd
